@@ -1,26 +1,28 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg'); // Подключаем PostgreSQL
 const bodyParser = require('body-parser');
 const xlsx = require('xlsx');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
-const PORT = 3000;
-const DB_PATH = './db.sqlite';
+// Порт берется из настроек Render или 3000 для локалки
+const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(cors());
 app.use(express.static('public'));
 
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) console.error(err.message);
-    console.log('Connected to the taskflow database.');
+// Настройка подключения к базе данных
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Создаем таблицу с новыми полями: start_date, priority
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+// Создание таблицы (Синтаксис для Postgres немного отличается от SQLite)
+pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
         description TEXT,
         performer TEXT,
         contractor TEXT,
@@ -31,72 +33,102 @@ db.serialize(() => {
         extension_reason TEXT,
         priority TEXT DEFAULT 'רגיל',
         status TEXT DEFAULT 'בתהליך',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, (err, res) => {
+    if (err) {
+        console.error('Error creating table:', err);
+    } else {
+        console.log('Table "tasks" is ready in PostgreSQL');
+    }
 });
 
-app.get('/api/tasks', (req, res) => {
-    // Сортировка: Сначала важные, потом по статусу, потом по дате
-    const sql = `SELECT * FROM tasks ORDER BY 
-        CASE WHEN priority = 'חשוב' THEN 0 ELSE 1 END,
-        CASE WHEN status = 'בתהליך' THEN 0 ELSE 1 END, 
-        due_date ASC`;
-    db.all(sql, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
+// --- API ROUTES ---
+
+// GET: Список задач
+app.get('/api/tasks', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM tasks 
+            ORDER BY 
+            CASE WHEN priority = 'חשוב' THEN 0 ELSE 1 END,
+            CASE WHEN status = 'בתהליך' THEN 0 ELSE 1 END, 
+            due_date ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/tasks', (req, res) => {
+// POST: Новая задача
+app.post('/api/tasks', async (req, res) => {
     const { description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority } = req.body;
-    const sql = `INSERT INTO tasks (description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, status, extension_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'בתהליך', '')`;
-    const params = [description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority];
     
-    db.run(sql, params, function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID });
-    });
+    // В Postgres вместо ? используются $1, $2... и нужно писать RETURNING id, чтобы получить номер новой задачи
+    const sql = `
+        INSERT INTO tasks (description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, status, extension_reason) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'בתהליך', '') 
+        RETURNING id
+    `;
+    const values = [description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority];
+
+    try {
+        const result = await pool.query(sql, values);
+        res.json({ id: result.rows[0].id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.put('/api/tasks/:id', (req, res) => {
+// PUT: Обновление задачи
+app.put('/api/tasks/:id', async (req, res) => {
     const { id } = req.params;
     const { due_date, extension_reason, status } = req.body;
     
-    let sql = `UPDATE tasks SET status = ?`;
-    let params = [status];
+    let sql = `UPDATE tasks SET status = $1`;
+    let values = [status];
+    let count = 2; // Счетчик для $2, $3...
 
     if (due_date) {
-        sql += `, due_date = ?`;
-        params.push(due_date);
+        sql += `, due_date = $${count}`;
+        values.push(due_date);
+        count++;
     }
     if (extension_reason) {
-        sql += `, extension_reason = ?`;
-        params.push(extension_reason);
+        sql += `, extension_reason = $${count}`;
+        values.push(extension_reason);
+        count++;
     }
 
-    sql += ` WHERE id = ?`;
-    params.push(id);
+    sql += ` WHERE id = $${count}`;
+    values.push(id);
 
-    db.run(sql, params, function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ changes: this.changes });
-    });
+    try {
+        await pool.query(sql, values);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
+// DELETE: Удаление
+app.delete('/api/tasks/:id', async (req, res) => {
     const { id } = req.params;
-    db.run(`DELETE FROM tasks WHERE id = ?`, id, function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ deleted: this.changes });
-    });
+    try {
+        await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/export', (req, res) => {
-    const sql = `SELECT * FROM tasks ORDER BY created_at DESC`;
-    db.all(sql, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        const data = rows.map(task => ({
+// EXPORT: Выгрузка в Excel
+app.get('/api/export', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
+        
+        const data = result.rows.map(task => ({
             "מזהה": task.id,
             "תיאור משימה": task.description,
             "עדיפות": task.priority,
@@ -120,9 +152,11 @@ app.get('/api/export', (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename="Tasks_Export.xlsx"');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.send(buffer);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
