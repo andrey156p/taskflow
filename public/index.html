@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - ניהול משימות</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header>
+        <h1>📋 TaskFlow - ניהול משימות</h1>
+    </header>
+
+    <div class="container" id="main-view">
+        <div class="card form-card">
+            <h2>הוספת משימה חדשה</h2>
+            <form id="addTaskForm">
+                <div class="form-group">
+                    <label>תיאור משימה:</label>
+                    <input type="text" id="desc" required>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="isImportant">
+                    <label for="isImportant" style="color:red; font-weight:bold;">🔥 משימה חשובה / דחופה</label>
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label>מבצע:</label>
+                        <input type="text" id="performer" required>
+                    </div>
+                    <div class="form-group">
+                        <label>אחראי:</label>
+                        <input type="text" id="inCharge" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>קבלן (אופציונלי):</label>
+                        <input type="text" id="contractor">
+                    </div>
+                    <div class="form-group">
+                        <label>פרטי קשר לקבלן:</label>
+                        <input type="text" id="contact">
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="form-group">
+                        <label>תאריך התחלה:</label>
+                        <input type="date" id="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>תאריך יעד:</label>
+                        <input type="date" id="dueDate" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">שמור משימה</button>
+            </form>
+        </div>
+
+        <div class="actions">
+            <button onclick="window.location.href='/api/export'" class="btn-excel">⬇ ייצוא לאקסל (כולל תאריכים)</button>
+        </div>
+
+        <div id="tasksList"></div>
+    </div>
+
+    <div class="container hidden" id="detail-view">
+        <button onclick="showMainView()" class="btn-secondary">🔙 חזרה לרשימה</button>
+        <div class="card detail-card" id="detail-content"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
