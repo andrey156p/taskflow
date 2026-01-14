@@ -10,12 +10,16 @@
 
     <div id="login-overlay">
         <div class="login-box">
-            <h2>🔐 כניסה למערכת</h2>
-            <p>נא להזין סיסמה כדי להמשיך</p>
-            <input type="password" id="passwordInput" placeholder="סיסמה..." autofocus>
-            <button onclick="checkLogin()" class="btn-primary">כניסה</button>
-            <p id="loginError" style="color:red; display:none; margin-top:10px;">סיסמה שגויה!</p>
-        </div>
+    <h2>🔐 כניסה למערכת</h2>
+    <p>נא להזין סיסמה כדי להמשיך</p>
+    
+    <div class="password-container">
+        <input type="password" id="passwordInput" placeholder="סיסמה..." autofocus>
+        <span id="togglePassword" onclick="togglePasswordVisibility()">👁️</span>
+    </div>
+    <button onclick="checkLogin()" class="btn-primary">כניסה</button>
+    <p id="loginError" style="color:red; display:none; margin-top:10px;">סיסמה שגויה!</p>
+</div>
     </div>
 
     <header>

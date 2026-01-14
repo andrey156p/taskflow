@@ -100,6 +100,25 @@ button {
 .btn-secondary { background: #6c757d; color: white; }
 .btn-success { background: var(--success); color: white; }
 .btn-danger { background: #dc3545; color: white; }
+/* Стили для глазка пароля */
+.password-container {
+    position: relative;
+    width: 100%;
+}
+
+.password-container input {
+    width: 100%;
+    padding-left: 40px; /* Место под глазок слева (так как у нас RTL) */
+}
+
+#togglePassword {
+    position: absolute;
+    left: 10px; /* Глазок будет слева, так как язык иврит */
+    top: 35%; /* Центрирование по вертикали */
+    cursor: pointer;
+    font-size: 1.2rem;
+    user-select: none;
+}
 
 /* Task Items Styling */
 .task-item {
