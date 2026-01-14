@@ -16,6 +16,29 @@ body {
     direction: rtl;
 }
 
+/* 🔐 Login Styles */
+#login-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.login-box {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    text-align: center;
+    width: 300px;
+}
+.login-box input {
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
 header {
     background: var(--primary);
     color: white;
@@ -41,7 +64,7 @@ header {
 
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
-input[type="text"], input[type="date"] { 
+input[type="text"], input[type="date"], input[type="password"] { 
     width: 100%; 
     padding: 10px; 
     border: 1px solid var(--border); 
@@ -80,50 +103,59 @@ button {
 
 /* Task Items Styling */
 .task-item {
-    border-right: 5px solid var(--primary); /* Обычная задача */
+    border-right: 5px solid var(--primary);
     padding: 15px;
     background: white;
     margin-bottom: 10px;
     border-radius: 4px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column; /* Изменили на колонку для прогресс-бара */
+    gap: 10px;
     cursor: pointer;
     transition: transform 0.1s;
     position: relative;
 }
 
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
 .task-item:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.task-item.important { border: 2px solid #dc3545; border-right: 6px solid #dc3545; background-color: #fffbfb; }
+.task-item.extended { background-color: #fff8e1; }
+.task-item.done { border-right-color: var(--success) !important; opacity: 0.6; background-color: #f0fff4 !important; border: 1px solid #ddd; }
 
-/* Стиль для ВАЖНЫХ задач */
-.task-item.important {
-    border: 2px solid #dc3545; /* Красная рамка вокруг */
-    border-right: 6px solid #dc3545;
-    background-color: #fffbfb;
-}
-
-/* Стиль для ПРОЛОНГИРОВАННЫХ задач (если есть причина продления) */
-.task-item.extended {
-    background-color: #fff8e1; /* Светло-оранжевый фон */
-}
-
-/* Выполненные задачи */
-.task-item.done { 
-    border-right-color: var(--success) !important; 
-    opacity: 0.6; 
-    background-color: #f0fff4 !important;
-    border: 1px solid #ddd;
-}
-
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: bold;
-}
+.status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
 .status-process { background: #fff3cd; color: #856404; }
 .status-done { background: #d4edda; color: #155724; }
 
-@media (max-width: 600px) {
-    .row { flex-direction: column; gap: 0; }
+/* 📊 Progress Bar Styles */
+.progress-container {
+    width: 100%;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    height: 8px;
+    margin-top: 5px;
+    overflow: hidden;
 }
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--primary);
+    width: 0%;
+    transition: width 0.5s ease-in-out;
+}
+
+/* Цвет меняется если время кончается */
+.progress-bar.danger { background-color: #dc3545; }
+.progress-bar.warning { background-color: #ffc107; }
+
+/* Detail View */
+.detail-row { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.detail-label { font-weight: bold; color: #666; font-size: 0.9rem; }
+.detail-value { font-size: 1.1rem; }
+
+@media (max-width: 600px) { .row { flex-direction: column; gap: 0; } }

@@ -1,49 +1,34 @@
 const express = require('express');
-const { Pool } = require('pg'); // Подключаем PostgreSQL
+const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const xlsx = require('xlsx');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
-// Порт берется из настроек Render или 3000 для локалки
 const PORT = process.env.PORT || 3000;
+// 🔒 НАСТРОЙКА ПАРОЛЯ (Можно поменять 'admin123' на свой)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 app.use(bodyParser.json());
 app.use(cors());
 app.use(express.static('public'));
 
-// Настройка подключения к базе данных
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Создание таблицы (Синтаксис для Postgres немного отличается от SQLite)
-pool.query(`
-    CREATE TABLE IF NOT EXISTS tasks (
-        id SERIAL PRIMARY KEY,
-        description TEXT,
-        performer TEXT,
-        contractor TEXT,
-        contractor_contact TEXT,
-        person_in_charge TEXT,
-        start_date TEXT,
-        due_date TEXT,
-        extension_reason TEXT,
-        priority TEXT DEFAULT 'רגיל',
-        status TEXT DEFAULT 'בתהליך',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-`, (err, res) => {
-    if (err) {
-        console.error('Error creating table:', err);
+// --- API ROUTES ---
+
+// 🔐 Проверка пароля
+app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    if (password === ADMIN_PASSWORD) {
+        res.json({ success: true });
     } else {
-        console.log('Table "tasks" is ready in PostgreSQL');
+        res.status(401).json({ success: false });
     }
 });
-
-// --- API ROUTES ---
 
 // GET: Список задач
 app.get('/api/tasks', async (req, res) => {
@@ -65,7 +50,6 @@ app.get('/api/tasks', async (req, res) => {
 app.post('/api/tasks', async (req, res) => {
     const { description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority } = req.body;
     
-    // В Postgres вместо ? используются $1, $2... и нужно писать RETURNING id, чтобы получить номер новой задачи
     const sql = `
         INSERT INTO tasks (description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, status, extension_reason) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'בתהליך', '') 
@@ -81,14 +65,14 @@ app.post('/api/tasks', async (req, res) => {
     }
 });
 
-// PUT: Обновление задачи
+// PUT: Обновление
 app.put('/api/tasks/:id', async (req, res) => {
     const { id } = req.params;
     const { due_date, extension_reason, status } = req.body;
     
     let sql = `UPDATE tasks SET status = $1`;
     let values = [status];
-    let count = 2; // Счетчик для $2, $3...
+    let count = 2;
 
     if (due_date) {
         sql += `, due_date = $${count}`;
@@ -123,7 +107,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
     }
 });
 
-// EXPORT: Выгрузка в Excel
+// EXPORT: Выгрузка в Excel (ИСПРАВЛЕНО: Добавлены контакты подрядчика)
 app.get('/api/export', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
@@ -134,6 +118,7 @@ app.get('/api/export', async (req, res) => {
             "עדיפות": task.priority,
             "מבצע": task.performer,
             "קבלן": task.contractor,
+            "פרטי קשר קבלן": task.contractor_contact, // <-- Добавили эту строку
             "אחראי": task.person_in_charge,
             "תאריך התחלה": task.start_date,
             "תאריך יעד": task.due_date,
@@ -143,7 +128,10 @@ app.get('/api/export', async (req, res) => {
 
         const wb = xlsx.utils.book_new();
         const ws = xlsx.utils.json_to_sheet(data);
-        const wscols = [{wch:5}, {wch:30}, {wch:10}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:25}, {wch:10}];
+        // Настраиваем ширину колонок
+        const wscols = [
+            {wch:5}, {wch:30}, {wch:10}, {wch:15}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:25}, {wch:10}
+        ];
         ws['!cols'] = wscols;
 
         xlsx.utils.book_append_sheet(wb, ws, "Tasks");
