@@ -1,9 +1,37 @@
 const API_URL = '/api/tasks';
 let currentTasks = [];
 
+// 🔒 Логика Входа
+async function checkLogin() {
+    const password = document.getElementById('passwordInput').value;
+    const errorMsg = document.getElementById('loginError');
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-view').classList.remove('hidden');
+            fetchTasks(); // Грузим задачи только после пароля
+        } else {
+            errorMsg.style.display = 'block';
+        }
+    } catch (e) {
+        alert('שגיאת תקשורת');
+    }
+}
+
+// Также разрешаем вход по Enter
+document.getElementById('passwordInput').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') checkLogin();
+});
+
 document.addEventListener('DOMContentLoaded', () => {
-    fetchTasks();
-    
     // Установка сегодняшней даты по умолчанию
     document.getElementById('startDate').valueAsDate = new Date();
 
@@ -30,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         e.target.reset();
-        document.getElementById('startDate').valueAsDate = new Date(); // Сброс даты на сегодня
+        document.getElementById('startDate').valueAsDate = new Date();
         fetchTasks();
     });
 });
@@ -41,6 +69,24 @@ async function fetchTasks() {
     renderTasks();
 }
 
+// 📊 Функция расчета прогресса
+function calculateProgress(start, end) {
+    const startDate = new Date(start).getTime();
+    const endDate = new Date(end).getTime();
+    const now = new Date().getTime();
+
+    if (now < startDate) return 0; // Еще не началось
+    if (now > endDate) return 100; // Просрочено
+
+    const total = endDate - startDate;
+    const elapsed = now - startDate;
+    
+    // Если даты совпадают, избегаем деления на ноль
+    if (total <= 0) return 100; 
+
+    return Math.floor((elapsed / total) * 100);
+}
+
 function renderTasks() {
     const list = document.getElementById('tasksList');
     list.innerHTML = '';
@@ -48,7 +94,6 @@ function renderTasks() {
     currentTasks.forEach(task => {
         const div = document.createElement('div');
         
-        // Определение классов для стилей
         let classes = 'task-item';
         if (task.status === 'בוצע') classes += ' done';
         if (task.priority === 'חשוב' && task.status !== 'בוצע') classes += ' important';
@@ -60,13 +105,28 @@ function renderTasks() {
         const priorityIcon = task.priority === 'חשוב' ? '🔥' : '';
         const extendedIcon = (task.extension_reason && task.extension_reason !== '') ? '⏱️' : '';
 
+        // Расчет прогресса
+        const progressPercent = calculateProgress(task.start_date, task.due_date);
+        let progressColor = '';
+        if (progressPercent > 75) progressColor = 'warning';
+        if (progressPercent > 90) progressColor = 'danger';
+        // Если выполнено - всегда зеленый (или скрываем)
+        const displayProgress = task.status === 'בוצע' ? 100 : progressPercent;
+        const displayColor = task.status === 'בוצע' ? 'background-color: #28a745;' : '';
+
         div.innerHTML = `
-            <div>
-                <strong>${priorityIcon} ${task.description}</strong> ${extendedIcon}<br>
-                <small>📅 ${task.start_date} ➝ ${task.due_date}</small>
+            <div class="task-header">
+                <div>
+                    <strong>${priorityIcon} ${task.description}</strong> ${extendedIcon}<br>
+                    <small>📅 ${task.start_date} ➝ ${task.due_date}</small>
+                </div>
+                <div>
+                    <span class="status-badge ${statusClass}">${task.status}</span>
+                </div>
             </div>
-            <div>
-                <span class="status-badge ${statusClass}">${task.status}</span>
+            
+            <div class="progress-container">
+                <div class="progress-bar ${progressColor}" style="width: ${displayProgress}%; ${displayColor}"></div>
             </div>
         `;
         
@@ -82,11 +142,16 @@ function showTaskDetails(id) {
     const content = document.getElementById('detail-content');
     const isDone = task.status === 'בוצע';
 
+    // Контакты подрядчика теперь выводятся здесь
     let html = `
         <h3>${task.priority === 'חשוב' ? '🔥' : ''} ${task.description}</h3>
         <div class="detail-row"><div class="detail-label">עדיפות</div><div class="detail-value">${task.priority}</div></div>
         <div class="detail-row"><div class="detail-label">מבצע</div><div class="detail-value">${task.performer}</div></div>
         <div class="detail-row"><div class="detail-label">אחראי</div><div class="detail-value">${task.person_in_charge}</div></div>
+        <div class="detail-row"><div class="detail-label">קבלן</div><div class="detail-value">${task.contractor || '-'}</div></div>
+        
+        <div class="detail-row"><div class="detail-label">פרטי קשר קבלן</div><div class="detail-value">${task.contractor_contact || '-'}</div></div>
+
         <div class="detail-row"><div class="detail-label">תאריך התחלה</div><div class="detail-value">${task.start_date}</div></div>
         <div class="detail-row"><div class="detail-label">תאריך יעד</div><div class="detail-value">${task.due_date}</div></div>
     `;
