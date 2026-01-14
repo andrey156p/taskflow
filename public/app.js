@@ -1,11 +1,37 @@
 const API_URL = '/api/tasks';
 let currentTasks = [];
 
-// 🔒 Логика Входа
+// 👁️ Функция глаза (исправлена)
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('passwordInput');
+    const toggleIcon = document.getElementById('togglePassword');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.textContent = '🙈';
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.textContent = '👁️';
+    }
+}
+
+// ⬆️ Логика кнопки "Наверх"
+window.onscroll = function() { scrollFunction() };
+function scrollFunction() {
+    const btn = document.getElementById("scrollTopBtn");
+    // Показываем, если прокрутили больше 200px
+    if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+        btn.style.display = "block";
+    } else {
+        btn.style.display = "none";
+    }
+}
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 async function checkLogin() {
     const password = document.getElementById('passwordInput').value;
     const errorMsg = document.getElementById('loginError');
-
     try {
         const res = await fetch('/api/login', {
             method: 'POST',
@@ -13,33 +39,25 @@ async function checkLogin() {
             body: JSON.stringify({ password })
         });
         const data = await res.json();
-
         if (data.success) {
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('main-view').classList.remove('hidden');
-            fetchTasks(); // Грузим задачи только после пароля
+            fetchTasks();
         } else {
             errorMsg.style.display = 'block';
         }
-    } catch (e) {
-        alert('שגיאת תקשורת');
-    }
+    } catch (e) { alert('שגיאת תקשורת'); }
 }
 
-// Также разрешаем вход по Enter
 document.getElementById('passwordInput').addEventListener('keypress', function (e) {
     if (e.key === 'Enter') checkLogin();
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Установка сегодняшней даты по умолчанию
     document.getElementById('startDate').valueAsDate = new Date();
-
     document.getElementById('addTaskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const isImportant = document.getElementById('isImportant').checked;
-
         const newTask = {
             description: document.getElementById('desc').value,
             performer: document.getElementById('performer').value,
@@ -50,13 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
             due_date: document.getElementById('dueDate').value,
             priority: isImportant ? 'חשוב' : 'רגיל'
         };
-
         await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newTask)
         });
-
         e.target.reset();
         document.getElementById('startDate').valueAsDate = new Date();
         fetchTasks();
@@ -69,21 +85,15 @@ async function fetchTasks() {
     renderTasks();
 }
 
-// 📊 Функция расчета прогресса
 function calculateProgress(start, end) {
     const startDate = new Date(start).getTime();
     const endDate = new Date(end).getTime();
     const now = new Date().getTime();
-
-    if (now < startDate) return 0; // Еще не началось
-    if (now > endDate) return 100; // Просрочено
-
+    if (now < startDate) return 0;
+    if (now > endDate) return 100;
     const total = endDate - startDate;
     const elapsed = now - startDate;
-    
-    // Если даты совпадают, избегаем деления на ноль
     if (total <= 0) return 100; 
-
     return Math.floor((elapsed / total) * 100);
 }
 
@@ -95,24 +105,32 @@ function renderTasks() {
         const div = document.createElement('div');
         
         let classes = 'task-item';
+        // Логика классов
         if (task.status === 'בוצע') classes += ' done';
-        if (task.priority === 'חשוב' && task.status !== 'בוצע') classes += ' important';
-        if (task.extension_reason && task.extension_reason.trim() !== '' && task.status !== 'בוצע') classes += ' extended';
+        else if (task.status === 'נמחק') classes += ' deleted'; // Новый класс
+        else if (task.priority === 'חשוב') classes += ' important';
+        
+        if (task.extension_reason && task.extension_reason.trim() !== '' && task.status === 'בתהליך') classes += ' extended';
 
         div.className = classes;
         
-        const statusClass = task.status === 'בתהליך' ? 'status-process' : 'status-done';
-        const priorityIcon = task.priority === 'חשוב' ? '🔥' : '';
-        const extendedIcon = (task.extension_reason && task.extension_reason !== '') ? '⏱️' : '';
+        let statusClass = 'status-process';
+        if (task.status === 'בוצע') statusClass = 'status-done';
+        if (task.status === 'נמחק') statusClass = 'status-deleted';
 
-        // Расчет прогресса
+        const priorityIcon = task.priority === 'חשוב' && task.status !== 'נמחק' ? '🔥' : '';
+        const extendedIcon = (task.extension_reason && task.extension_reason !== '' && task.status !== 'נמחק') ? '⏱️' : '';
+
         const progressPercent = calculateProgress(task.start_date, task.due_date);
         let progressColor = '';
         if (progressPercent > 75) progressColor = 'warning';
         if (progressPercent > 90) progressColor = 'danger';
-        // Если выполнено - всегда зеленый (или скрываем)
-        const displayProgress = task.status === 'בוצע' ? 100 : progressPercent;
-        const displayColor = task.status === 'בוצע' ? 'background-color: #28a745;' : '';
+        
+        // Скрываем прогресс бар если удалено или готово
+        let displayProgress = progressPercent;
+        let progressStyle = `width: ${displayProgress}%;`;
+        if (task.status === 'בוצע') progressStyle += 'background-color: #28a745;';
+        if (task.status === 'נמחק') progressStyle = 'display:none;'; // Нет прогресса для удаленных
 
         div.innerHTML = `
             <div class="task-header">
@@ -125,8 +143,8 @@ function renderTasks() {
                 </div>
             </div>
             
-            <div class="progress-container">
-                <div class="progress-bar ${progressColor}" style="width: ${displayProgress}%; ${displayColor}"></div>
+            <div class="progress-container" style="${task.status === 'נמחק' ? 'display:none' : ''}">
+                <div class="progress-bar ${progressColor}" style="${progressStyle}"></div>
             </div>
         `;
         
@@ -141,45 +159,44 @@ function showTaskDetails(id) {
 
     const content = document.getElementById('detail-content');
     const isDone = task.status === 'בוצע';
+    const isDeleted = task.status === 'נמחק';
 
-    // Контакты подрядчика теперь выводятся здесь
     let html = `
-        <h3>${task.priority === 'חשוב' ? '🔥' : ''} ${task.description}</h3>
-        <div class="detail-row"><div class="detail-label">עדיפות</div><div class="detail-value">${task.priority}</div></div>
+        <h3>${task.description}</h3>
+        <div class="detail-row"><div class="detail-label">סטטוס</div><div class="detail-value">${task.status}</div></div>
         <div class="detail-row"><div class="detail-label">מבצע</div><div class="detail-value">${task.performer}</div></div>
-        <div class="detail-row"><div class="detail-label">אחראי</div><div class="detail-value">${task.person_in_charge}</div></div>
         <div class="detail-row"><div class="detail-label">קבלן</div><div class="detail-value">${task.contractor || '-'}</div></div>
-        
         <div class="detail-row"><div class="detail-label">פרטי קשר קבלן</div><div class="detail-value">${task.contractor_contact || '-'}</div></div>
-
         <div class="detail-row"><div class="detail-label">תאריך התחלה</div><div class="detail-value">${task.start_date}</div></div>
         <div class="detail-row"><div class="detail-label">תאריך יעד</div><div class="detail-value">${task.due_date}</div></div>
     `;
 
     if (task.extension_reason) {
-        html += `<div class="detail-row" style="background:#fff3cd; padding:5px;"><div class="detail-label" style="color:#d39e00">סיבת הארכה (המשימה הוארכה)</div><div class="detail-value">${task.extension_reason}</div></div>`;
+        html += `<div class="detail-row" style="background:#fff3cd; padding:5px;"><div class="detail-label" style="color:#d39e00">סיבת הארכה</div><div class="detail-value">${task.extension_reason}</div></div>`;
     }
 
     html += `<div style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">`;
 
-    if (!isDone) {
+    if (!isDone && !isDeleted) {
         html += `
             <h4>פעולות:</h4>
             <div class="form-group">
-                <label>הארכת מועד (מחייב סיבה):</label>
+                <label>הארכת מועד:</label>
                 <input type="date" id="newDate" value="${task.due_date}">
                 <input type="text" id="reason" placeholder="סיבת הארכה..." style="margin-top:5px;">
                 <button onclick="extendTask(${task.id}, '${task.due_date}')" class="btn-primary" style="margin-top:5px;">עדכן תאריך</button>
             </div>
             <button onclick="markAsDone(${task.id})" class="btn-success">✅ סמן כ-בוצע</button>
+            <button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
         `;
+    } else if (isDeleted) {
+         html += `<p style="color: gray; font-weight:bold;">המשימה נמחקה (ארכיון)</p>`;
+         // Можно добавить кнопку восстановления если нужно
     } else {
         html += `<p style="color: green; font-weight:bold;">המשימה הושלמה</p>`;
     }
     
-    html += `<button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 מחק משימה</button>`;
     html += `</div>`;
-
     content.innerHTML = html;
     
     document.getElementById('main-view').classList.add('hidden');
@@ -205,10 +222,8 @@ async function markAsDone(id) {
 async function extendTask(id, oldDate) {
     const newDate = document.getElementById('newDate').value;
     const reason = document.getElementById('reason').value;
-
     if (newDate === oldDate) { alert('יש לבחור תאריך חדש'); return; }
     if (!reason.trim()) { alert('חובה להזין סיבת הארכה!'); return; }
-
     await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -217,8 +232,9 @@ async function extendTask(id, oldDate) {
     showMainView();
 }
 
+// Теперь это не DELETE из базы, а пометка "Удалено"
 async function deleteTask(id) {
-    if(!confirm('למחוק לצמיתות?')) return;
-    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    if(!confirm('להעביר את המשימה לסטטוס "נמחק"? (היא תישאר ברשימה באפור)')) return;
+    await fetch(`${API_URL}/${id}`, { method: 'DELETE' }); // Вызываем DELETE API, но сервер сделает UPDATE
     showMainView();
 }

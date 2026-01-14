@@ -14,167 +14,109 @@ body {
     margin: 0;
     padding: 0;
     direction: rtl;
+    scroll-behavior: smooth; /* Плавная прокрутка */
 }
 
-/* 🔐 Login Styles */
-#login-overlay {
+/* ⬆️ Кнопка Наверх */
+#scrollTopBtn {
+    display: none; /* Скрыта по умолчанию */
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8);
-    z-index: 9999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.login-box {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    text-align: center;
-    width: 300px;
-}
-.login-box input {
-    margin-bottom: 15px;
-    text-align: center;
-    font-size: 1.2rem;
-}
-
-header {
-    background: var(--primary);
+    bottom: 20px;
+    left: 20px; /* Слева, так как иврит */
+    z-index: 99;
+    font-size: 24px;
+    border: none;
+    outline: none;
+    background-color: var(--primary);
     color: white;
-    padding: 1rem;
-    text-align: center;
-}
-
-.container {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 0 15px;
-}
-
-.card {
-    background: var(--card-bg);
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-
-.hidden { display: none; }
-
-.form-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 5px; font-weight: bold; }
-input[type="text"], input[type="date"], input[type="password"] { 
-    width: 100%; 
-    padding: 10px; 
-    border: 1px solid var(--border); 
-    border-radius: 4px; 
-    box-sizing: border-box;
-}
-
-.checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #fff0f0;
-    padding: 10px;
-    border-radius: 4px;
-}
-.checkbox-group input { width: auto; transform: scale(1.5); }
-.checkbox-group label { margin: 0; cursor: pointer; }
-
-.row { display: flex; gap: 15px; }
-.row .form-group { flex: 1; }
-
-button {
     cursor: pointer;
     padding: 10px 15px;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    width: 100%;
-    margin-bottom: 10px;
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    width: auto;
 }
+#scrollTopBtn:hover { background-color: #0056b3; }
+
+/* 🔐 Login Styles + Eye Fix */
+#login-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 9999;
+    display: flex; justify-content: center; align-items: center;
+}
+.login-box {
+    background: white; padding: 30px; border-radius: 8px;
+    text-align: center; width: 300px;
+}
+.password-container {
+    position: relative; width: 100%;
+}
+.password-container input {
+    width: 100%; padding-left: 40px; margin-bottom: 0;
+}
+/* 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ ДЛЯ ГЛАЗА */
+#togglePassword {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 1.2rem;
+    z-index: 10; /* Чтобы был поверх поля ввода */
+    background: white; /* Чтобы линия ввода не перечеркивала его */
+    padding: 0 2px;
+}
+
+header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
+.container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
+.card { background: var(--card-bg); border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+.hidden { display: none; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: bold; }
+input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
+.checkbox-group { display: flex; align-items: center; gap: 10px; background: #fff0f0; padding: 10px; border-radius: 4px; }
+.checkbox-group input { width: auto; transform: scale(1.5); }
+.checkbox-group label { margin: 0; cursor: pointer; }
+.row { display: flex; gap: 15px; }
+.row .form-group { flex: 1; }
+button { cursor: pointer; padding: 10px 15px; border: none; border-radius: 4px; font-size: 1rem; width: 100%; margin-bottom: 10px; }
 .btn-primary { background: var(--primary); color: white; }
 .btn-excel { background: #217346; color: white; }
 .btn-secondary { background: #6c757d; color: white; }
 .btn-success { background: var(--success); color: white; }
 .btn-danger { background: #dc3545; color: white; }
-/* Стили для глазка пароля */
-.password-container {
-    position: relative;
-    width: 100%;
-}
 
-.password-container input {
-    width: 100%;
-    padding-left: 40px; /* Место под глазок слева (так как у нас RTL) */
-}
-
-#togglePassword {
-    position: absolute;
-    left: 10px; /* Глазок будет слева, так как язык иврит */
-    top: 35%; /* Центрирование по вертикали */
-    cursor: pointer;
-    font-size: 1.2rem;
-    user-select: none;
-}
-
-/* Task Items Styling */
+/* Task Items */
 .task-item {
-    border-right: 5px solid var(--primary);
-    padding: 15px;
-    background: white;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column; /* Изменили на колонку для прогресс-бара */
-    gap: 10px;
-    cursor: pointer;
-    transition: transform 0.1s;
-    position: relative;
+    border-right: 5px solid var(--primary); padding: 15px; background: white;
+    margin-bottom: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px;
+    cursor: pointer; transition: transform 0.1s; position: relative;
 }
-
-.task-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
-
+.task-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .task-item:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 .task-item.important { border: 2px solid #dc3545; border-right: 6px solid #dc3545; background-color: #fffbfb; }
 .task-item.extended { background-color: #fff8e1; }
-.task-item.done { border-right-color: var(--success) !important; opacity: 0.6; background-color: #f0fff4 !important; border: 1px solid #ddd; }
+.task-item.done { border-right-color: var(--success) !important; opacity: 0.6; background-color: #f0fff4 !important; }
+
+/* 🔥 СТИЛЬ ДЛЯ УДАЛЕННЫХ ЗАДАЧ */
+.task-item.deleted {
+    background-color: #e9ecef !important;
+    border-right-color: #6c757d !important;
+    border: 1px solid #ddd;
+    opacity: 0.5;
+}
+.task-item.deleted strong { text-decoration: line-through; color: #6c757d; }
 
 .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
 .status-process { background: #fff3cd; color: #856404; }
 .status-done { background: #d4edda; color: #155724; }
+.status-deleted { background: #d6d8db; color: #383d41; }
 
-/* 📊 Progress Bar Styles */
-.progress-container {
-    width: 100%;
-    background-color: #e9ecef;
-    border-radius: 5px;
-    height: 8px;
-    margin-top: 5px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    height: 100%;
-    background-color: var(--primary);
-    width: 0%;
-    transition: width 0.5s ease-in-out;
-}
-
-/* Цвет меняется если время кончается */
+.progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; height: 8px; margin-top: 5px; overflow: hidden; }
+.progress-bar { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.5s ease-in-out; }
 .progress-bar.danger { background-color: #dc3545; }
 .progress-bar.warning { background-color: #ffc107; }
 
-/* Detail View */
 .detail-row { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
 .detail-label { font-weight: bold; color: #666; font-size: 0.9rem; }
 .detail-value { font-size: 1.1rem; }
-
 @media (max-width: 600px) { .row { flex-direction: column; gap: 0; } }
