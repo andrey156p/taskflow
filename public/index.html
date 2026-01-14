@@ -41,7 +41,7 @@
                     <input type="text" id="desc" required>
                 </div>
                 
-                <div class="form-group checkbox-group">
+                <div class="checkbox-group">
                     <input type="checkbox" id="isImportant">
                     <label for="isImportant" style="color:red; font-weight:bold;">🔥 משימה חשובה / דחופה</label>
                 </div>
@@ -110,7 +110,44 @@
 
     <div class="container hidden" id="detail-view">
         <button onclick="showMainView()" class="btn-secondary">🔙 חזרה לרשימה</button>
-        <div class="card detail-card" id="detail-content"></div>
+        
+        <div class="card detail-card" id="detail-content">
+            </div>
+
+        <div class="card hidden" id="edit-form-container">
+            <h2 style="color:var(--primary)">✏️ עריכת משימה</h2>
+            <form id="editTaskForm">
+                <input type="hidden" id="editTaskId"> <div class="form-group">
+                    <label>תיאור משימה:</label>
+                    <input type="text" id="editDesc" required>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="editIsImportant">
+                    <label for="editIsImportant" style="color:red;">🔥 חשוב</label>
+                </div>
+                <div class="row">
+                    <div class="form-group"><label>מבצע:</label><input type="text" id="editPerformer"></div>
+                    <div class="form-group"><label>אחראי:</label><input type="text" id="editInCharge"></div>
+                </div>
+                <div class="row">
+                    <div class="form-group"><label>קבלן:</label><input type="text" id="editContractor"></div>
+                    <div class="form-group"><label>איש קשר:</label><input type="text" id="editContact"></div>
+                </div>
+                <div class="form-group"><label>חומרים:</label><input type="text" id="editMaterials"></div>
+                <div class="row">
+                    <div class="form-group"><label>ספק:</label><input type="text" id="editSupplier"></div>
+                    <div class="form-group"><label>איש קשר ספק:</label><input type="text" id="editSupplierContact"></div>
+                </div>
+                <div class="row">
+                    <div class="form-group"><label>תאריך התחלה:</label><input type="date" id="editStartDate"></div>
+                    <div class="form-group"><label>תאריך יעד:</label><input type="date" id="editDueDate"></div>
+                </div>
+                
+                <button type="submit" class="btn-primary">💾 שמור שינויים</button>
+                <button type="button" onclick="cancelEdit()" class="btn-secondary">❌ ביטול</button>
+            </form>
+        </div>
+
     </div>
 
     <script src="app.js"></script>

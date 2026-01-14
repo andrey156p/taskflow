@@ -1,11 +1,9 @@
 const API_URL = '/api/tasks';
 let currentTasks = [];
 
-// 👁️ Глаз теперь работает 100%
 function togglePasswordVisibility() {
     const passwordInput = document.getElementById('passwordInput');
     const toggleBtn = document.getElementById('togglePasswordBtn');
-    
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
         toggleBtn.textContent = '🙈';
@@ -15,7 +13,6 @@ function togglePasswordVisibility() {
     }
 }
 
-// ⬆️ Кнопка Наверх
 window.onscroll = function() { scrollFunction() };
 function scrollFunction() {
     const btn = document.getElementById("scrollTopBtn");
@@ -55,27 +52,65 @@ document.getElementById('passwordInput').addEventListener('keypress', function (
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('startDate').valueAsDate = new Date();
+    
+    // Создание задачи
     document.getElementById('addTaskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const isImportant = document.getElementById('isImportant').checked;
+        
         const newTask = {
             description: document.getElementById('desc').value,
             performer: document.getElementById('performer').value,
             contractor: document.getElementById('contractor').value,
             contractor_contact: document.getElementById('contact').value,
             person_in_charge: document.getElementById('inCharge').value,
+            materials: document.getElementById('materials').value,
+            supplier: document.getElementById('supplier').value,
+            supplier_contact: document.getElementById('supplierContact').value,
             start_date: document.getElementById('startDate').value,
             due_date: document.getElementById('dueDate').value,
             priority: isImportant ? 'חשוב' : 'רגיל'
         };
+
         await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newTask)
         });
+
         e.target.reset();
         document.getElementById('startDate').valueAsDate = new Date();
         fetchTasks();
+    });
+
+    // 🔥 СОХРАНЕНИЕ РЕДАКТИРОВАНИЯ
+    document.getElementById('editTaskForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('editTaskId').value;
+        
+        const updatedTask = {
+            description: document.getElementById('editDesc').value,
+            priority: document.getElementById('editIsImportant').checked ? 'חשוב' : 'רגיל',
+            performer: document.getElementById('editPerformer').value,
+            person_in_charge: document.getElementById('editInCharge').value,
+            contractor: document.getElementById('editContractor').value,
+            contractor_contact: document.getElementById('editContact').value,
+            materials: document.getElementById('editMaterials').value,
+            supplier: document.getElementById('editSupplier').value,
+            supplier_contact: document.getElementById('editSupplierContact').value,
+            start_date: document.getElementById('editStartDate').value,
+            due_date: document.getElementById('editDueDate').value
+        };
+
+        await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedTask)
+        });
+
+        alert('המשימה עודכנה בהצלחה!');
+        cancelEdit(); // Закрыть форму
+        showMainView(); // Вернуться в список
     });
 });
 
@@ -102,7 +137,6 @@ function renderTasks() {
     list.innerHTML = '';
 
     currentTasks.forEach(task => {
-        // Мы больше не получаем удаленные задачи, поэтому проверок стало меньше
         const div = document.createElement('div');
         
         let classes = 'task-item';
@@ -112,9 +146,7 @@ function renderTasks() {
 
         div.className = classes;
         
-        let statusClass = 'status-process';
-        if (task.status === 'בוצע') statusClass = 'status-done';
-
+        let statusClass = task.status === 'בוצע' ? 'status-done' : 'status-process';
         const priorityIcon = task.priority === 'חשוב' ? '🔥' : '';
         const extendedIcon = (task.extension_reason && task.extension_reason !== '') ? '⏱️' : '';
 
@@ -158,9 +190,19 @@ function showTaskDetails(id) {
     let html = `
         <h3>${task.description}</h3>
         <div class="detail-row"><div class="detail-label">סטטוס</div><div class="detail-value">${task.status}</div></div>
+        
+        <h4 style="margin:15px 0 5px; color:#0d47a1; border-bottom:1px solid #ddd;">אנשים</h4>
         <div class="detail-row"><div class="detail-label">מבצע</div><div class="detail-value">${task.performer}</div></div>
+        <div class="detail-row"><div class="detail-label">אחראי</div><div class="detail-value">${task.person_in_charge}</div></div>
         <div class="detail-row"><div class="detail-label">קבלן</div><div class="detail-value">${task.contractor || '-'}</div></div>
         <div class="detail-row"><div class="detail-label">פרטי קשר קבלן</div><div class="detail-value">${task.contractor_contact || '-'}</div></div>
+
+        <h4 style="margin:15px 0 5px; color:#0d47a1; border-bottom:1px solid #ddd;">רכש ולוגיסטיקה</h4>
+        <div class="detail-row"><div class="detail-label">חומרים דרושים</div><div class="detail-value">${task.materials || '-'}</div></div>
+        <div class="detail-row"><div class="detail-label">ספק</div><div class="detail-value">${task.supplier || '-'}</div></div>
+        <div class="detail-row"><div class="detail-label">איש קשר ספק</div><div class="detail-value">${task.supplier_contact || '-'}</div></div>
+
+        <h4 style="margin:15px 0 5px; color:#0d47a1; border-bottom:1px solid #ddd;">זמנים</h4>
         <div class="detail-row"><div class="detail-label">תאריך התחלה</div><div class="detail-value">${task.start_date}</div></div>
         <div class="detail-row"><div class="detail-label">תאריך יעד</div><div class="detail-value">${task.due_date}</div></div>
     `;
@@ -169,10 +211,13 @@ function showTaskDetails(id) {
         html += `<div class="detail-row" style="background:#fff3cd; padding:5px;"><div class="detail-label" style="color:#d39e00">סיבת הארכה</div><div class="detail-value">${task.extension_reason}</div></div>`;
     }
 
+    // Кнопки действий
     html += `<div style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">`;
 
     if (!isDone) {
         html += `
+            <button onclick="enableEditMode(${task.id})" class="btn-secondary" style="background:#ff9800; color:white; margin-bottom:15px;">✏️ עריכת פרטים</button>
+
             <h4>פעולות:</h4>
             <div class="form-group">
                 <label>הארכת מועד:</label>
@@ -190,8 +235,41 @@ function showTaskDetails(id) {
     html += `</div>`;
     content.innerHTML = html;
     
+    // Скрываем форму редактирования, показываем детали
+    document.getElementById('edit-form-container').classList.add('hidden');
+    document.getElementById('detail-content').classList.remove('hidden');
+
     document.getElementById('main-view').classList.add('hidden');
     document.getElementById('detail-view').classList.remove('hidden');
+}
+
+// 🔥 ВКЛЮЧЕНИЕ РЕЖИМА РЕДАКТИРОВАНИЯ
+function enableEditMode(id) {
+    const task = currentTasks.find(t => t.id === id);
+    if (!task) return;
+
+    // Заполняем форму текущими данными
+    document.getElementById('editTaskId').value = task.id;
+    document.getElementById('editDesc').value = task.description;
+    document.getElementById('editIsImportant').checked = (task.priority === 'חשוב');
+    document.getElementById('editPerformer').value = task.performer;
+    document.getElementById('editInCharge').value = task.person_in_charge;
+    document.getElementById('editContractor').value = task.contractor;
+    document.getElementById('editContact').value = task.contractor_contact;
+    document.getElementById('editMaterials').value = task.materials;
+    document.getElementById('editSupplier').value = task.supplier;
+    document.getElementById('editSupplierContact').value = task.supplier_contact;
+    document.getElementById('editStartDate').value = task.start_date;
+    document.getElementById('editDueDate').value = task.due_date;
+
+    // Скрываем детали, показываем форму
+    document.getElementById('detail-content').classList.add('hidden');
+    document.getElementById('edit-form-container').classList.remove('hidden');
+}
+
+function cancelEdit() {
+    document.getElementById('edit-form-container').classList.add('hidden');
+    document.getElementById('detail-content').classList.remove('hidden');
 }
 
 function showMainView() {
@@ -224,7 +302,7 @@ async function extendTask(id, oldDate) {
 }
 
 async function deleteTask(id) {
-    if(!confirm('להעביר את המשימה לארכיון? (היא תיעלם מהרשימה אבל תופיע בדוח אקסל)')) return;
+    if(!confirm('להעביר לארכיון?')) return;
     await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
     showMainView();
 }

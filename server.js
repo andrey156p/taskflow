@@ -23,7 +23,7 @@ const pool = new Pool({
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// 🔥 АВТО-ОБНОВЛЕНИЕ ТАБЛИЦЫ (Добавляем новые колонки в старую базу)
+// АВТО-ОБНОВЛЕНИЕ ТАБЛИЦЫ
 async function updateTableSchema() {
     try {
         await pool.query(`
@@ -45,23 +45,18 @@ async function updateTableSchema() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        // Пытаемся добавить колонки, если таблица уже была создана раньше
         await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS materials TEXT");
         await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS supplier TEXT");
         await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS supplier_contact TEXT");
-        console.log("✅ Database schema updated successfully");
-    } catch (e) {
-        console.log("ℹ️ Schema update info:", e.message);
-    }
+        console.log("✅ Database schema updated");
+    } catch (e) { console.log("ℹ️ Schema update info:", e.message); }
 }
 updateTableSchema();
 
 // --- EXCEL LOGIC ---
 async function generateExcelBuffer() {
-    // В Excel попадают ВСЕ задачи (включая удаленные)
     const result = await pool.query('SELECT * FROM tasks ORDER BY due_date ASC');
     const tasks = result.rows;
-
     const dataForExcel = [];
     let currentWeekStart = null;
 
@@ -77,12 +72,9 @@ async function generateExcelBuffer() {
             currentWeekStart = weekKey;
             const dateStr = weekStart.toLocaleDateString('he-IL');
             dataForExcel.push({});
-            // Заголовок разделителя
             dataForExcel.push({ "תאריך התחלה": `--- שבוע: ${dateStr} ---` });
         }
 
-        // 📊 ПОРЯДОК КОЛОНОК (Справа налево для Excel RTL)
-        // A=Start Date, B=End Date...
         dataForExcel.push({
             "תאריך התחלה": task.start_date,      
             "תאריך יעד": task.due_date,          
@@ -90,13 +82,13 @@ async function generateExcelBuffer() {
             "סטטוס": task.status,                
             "עדיפות": task.priority,             
             "תיאור משימה": task.description,     
-            "חומרים דרושים": task.materials,     // Новое
+            "חומרים דרושים": task.materials,     
             "מבצע": task.performer,              
             "אחראי": task.person_in_charge,      
             "קבלן": task.contractor,             
             "פרטי קשר קבלן": task.contractor_contact, 
-            "ספק": task.supplier,                // Новое
-            "פרטי קשר ספק": task.supplier_contact, // Новое
+            "ספק": task.supplier,                
+            "פרטי קשר ספק": task.supplier_contact, 
             "מזהה": task.id                      
         });
     });
@@ -104,16 +96,8 @@ async function generateExcelBuffer() {
     const wb = xlsx.utils.book_new();
     wb.Workbook = { Views: [{ RTL: true }] };
     const ws = xlsx.utils.json_to_sheet(dataForExcel);
-
-    // Закрепление шапки
     ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
-
-    // Ширина колонок
-    ws['!cols'] = [
-        {wch:12}, {wch:12}, {wch:20}, {wch:10}, {wch:8}, 
-        {wch:35}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, 
-        {wch:15}, {wch:15}, {wch:15}, {wch:5}
-    ];
+    ws['!cols'] = [{wch:12}, {wch:12}, {wch:20}, {wch:10}, {wch:8}, {wch:35}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:5}];
 
     xlsx.utils.book_append_sheet(wb, ws, "Tasks Report");
     return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -146,7 +130,6 @@ app.post('/api/login', (req, res) => {
     else res.status(401).json({ success: false });
 });
 
-// GET: Список задач (СТРОГО БЕЗ УДАЛЕННЫХ)
 app.get('/api/tasks', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -162,7 +145,6 @@ app.get('/api/tasks', async (req, res) => {
 });
 
 app.post('/api/tasks', async (req, res) => {
-    // Получаем новые поля
     const { description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, materials, supplier, supplier_contact } = req.body;
     try {
         const sql = `
@@ -171,22 +153,55 @@ app.post('/api/tasks', async (req, res) => {
             RETURNING id
         `;
         const values = [description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, materials, supplier, supplier_contact];
-        
         const result = await pool.query(sql, values);
         res.json({ id: result.rows[0].id });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 ОБНОВЛЕННЫЙ PUT (РЕДАКТИРОВАНИЕ)
 app.put('/api/tasks/:id', async (req, res) => {
     const { id } = req.params;
-    const { due_date, extension_reason, status } = req.body;
-    let sql = `UPDATE tasks SET status = $1`;
-    let values = [status];
-    let count = 2;
-    if (due_date) { sql += `, due_date = $${count}`; values.push(due_date); count++; }
-    if (extension_reason) { sql += `, extension_reason = $${count}`; values.push(extension_reason); count++; }
-    sql += ` WHERE id = $${count}`; values.push(id);
-    try { await pool.query(sql, values); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    
+    // Мы ожидаем получить ВСЕ поля для обновления
+    const { 
+        description, performer, contractor, contractor_contact, 
+        person_in_charge, start_date, due_date, priority, 
+        materials, supplier, supplier_contact, status, extension_reason 
+    } = req.body;
+
+    // Если пришел запрос только на продление срока (старый функционал)
+    if (!description) {
+        // Логика простого продления или смены статуса
+        let sql = `UPDATE tasks SET status = $1`;
+        let values = [status];
+        let count = 2;
+        if (due_date) { sql += `, due_date = $${count}`; values.push(due_date); count++; }
+        if (extension_reason) { sql += `, extension_reason = $${count}`; values.push(extension_reason); count++; }
+        sql += ` WHERE id = $${count}`; values.push(id);
+        
+        try { await pool.query(sql, values); res.json({ success: true }); } 
+        catch (err) { res.status(500).json({ error: err.message }); }
+        return;
+    }
+
+    // ЛОГИКА ПОЛНОГО РЕДАКТИРОВАНИЯ
+    const sql = `
+        UPDATE tasks SET 
+        description = $1, performer = $2, contractor = $3, contractor_contact = $4,
+        person_in_charge = $5, start_date = $6, due_date = $7, priority = $8,
+        materials = $9, supplier = $10, supplier_contact = $11
+        WHERE id = $12
+    `;
+    const values = [
+        description, performer, contractor, contractor_contact, 
+        person_in_charge, start_date, due_date, priority, 
+        materials, supplier, supplier_contact, id
+    ];
+
+    try {
+        await pool.query(sql, values);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/tasks/:id', async (req, res) => {
