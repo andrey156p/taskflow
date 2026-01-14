@@ -1,24 +1,24 @@
 const API_URL = '/api/tasks';
 let currentTasks = [];
 
-// 👁️ Функция глаза (исправлена)
+// 👁️ Глаз теперь работает 100%
 function togglePasswordVisibility() {
     const passwordInput = document.getElementById('passwordInput');
-    const toggleIcon = document.getElementById('togglePassword');
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+    
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        toggleIcon.textContent = '🙈';
+        toggleBtn.textContent = '🙈';
     } else {
         passwordInput.type = 'password';
-        toggleIcon.textContent = '👁️';
+        toggleBtn.textContent = '👁️';
     }
 }
 
-// ⬆️ Логика кнопки "Наверх"
+// ⬆️ Кнопка Наверх
 window.onscroll = function() { scrollFunction() };
 function scrollFunction() {
     const btn = document.getElementById("scrollTopBtn");
-    // Показываем, если прокрутили больше 200px
     if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
         btn.style.display = "block";
     } else {
@@ -102,35 +102,30 @@ function renderTasks() {
     list.innerHTML = '';
 
     currentTasks.forEach(task => {
+        // Мы больше не получаем удаленные задачи, поэтому проверок стало меньше
         const div = document.createElement('div');
         
         let classes = 'task-item';
-        // Логика классов
         if (task.status === 'בוצע') classes += ' done';
-        else if (task.status === 'נמחק') classes += ' deleted'; // Новый класс
         else if (task.priority === 'חשוב') classes += ' important';
-        
-        if (task.extension_reason && task.extension_reason.trim() !== '' && task.status === 'בתהליך') classes += ' extended';
+        if (task.extension_reason && task.extension_reason.trim() !== '') classes += ' extended';
 
         div.className = classes;
         
         let statusClass = 'status-process';
         if (task.status === 'בוצע') statusClass = 'status-done';
-        if (task.status === 'נמחק') statusClass = 'status-deleted';
 
-        const priorityIcon = task.priority === 'חשוב' && task.status !== 'נמחק' ? '🔥' : '';
-        const extendedIcon = (task.extension_reason && task.extension_reason !== '' && task.status !== 'נמחק') ? '⏱️' : '';
+        const priorityIcon = task.priority === 'חשוב' ? '🔥' : '';
+        const extendedIcon = (task.extension_reason && task.extension_reason !== '') ? '⏱️' : '';
 
         const progressPercent = calculateProgress(task.start_date, task.due_date);
         let progressColor = '';
         if (progressPercent > 75) progressColor = 'warning';
         if (progressPercent > 90) progressColor = 'danger';
         
-        // Скрываем прогресс бар если удалено или готово
         let displayProgress = progressPercent;
         let progressStyle = `width: ${displayProgress}%;`;
         if (task.status === 'בוצע') progressStyle += 'background-color: #28a745;';
-        if (task.status === 'נמחק') progressStyle = 'display:none;'; // Нет прогресса для удаленных
 
         div.innerHTML = `
             <div class="task-header">
@@ -143,7 +138,7 @@ function renderTasks() {
                 </div>
             </div>
             
-            <div class="progress-container" style="${task.status === 'נמחק' ? 'display:none' : ''}">
+            <div class="progress-container">
                 <div class="progress-bar ${progressColor}" style="${progressStyle}"></div>
             </div>
         `;
@@ -159,7 +154,6 @@ function showTaskDetails(id) {
 
     const content = document.getElementById('detail-content');
     const isDone = task.status === 'בוצע';
-    const isDeleted = task.status === 'נמחק';
 
     let html = `
         <h3>${task.description}</h3>
@@ -177,7 +171,7 @@ function showTaskDetails(id) {
 
     html += `<div style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">`;
 
-    if (!isDone && !isDeleted) {
+    if (!isDone) {
         html += `
             <h4>פעולות:</h4>
             <div class="form-group">
@@ -189,9 +183,6 @@ function showTaskDetails(id) {
             <button onclick="markAsDone(${task.id})" class="btn-success">✅ סמן כ-בוצע</button>
             <button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
         `;
-    } else if (isDeleted) {
-         html += `<p style="color: gray; font-weight:bold;">המשימה נמחקה (ארכיון)</p>`;
-         // Можно добавить кнопку восстановления если нужно
     } else {
         html += `<p style="color: green; font-weight:bold;">המשימה הושלמה</p>`;
     }
@@ -232,9 +223,8 @@ async function extendTask(id, oldDate) {
     showMainView();
 }
 
-// Теперь это не DELETE из базы, а пометка "Удалено"
 async function deleteTask(id) {
-    if(!confirm('להעביר את המשימה לסטטוס "נמחק"? (היא תישאר ברשימה באפור)')) return;
-    await fetch(`${API_URL}/${id}`, { method: 'DELETE' }); // Вызываем DELETE API, но сервер сделает UPDATE
+    if(!confirm('להעביר את המשימה לארכיון? (היא תיעלם מהרשימה אבל תופיע בדוח אקסל)')) return;
+    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
     showMainView();
 }

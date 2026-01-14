@@ -1,122 +1,244 @@
-:root {
-    --primary: #007bff;
-    --success: #28a745;
-    --bg: #f4f6f9;
-    --card-bg: #ffffff;
-    --text: #333;
-    --border: #ddd;
+const API_URL = '/api/tasks';
+let currentTasks = [];
+
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('passwordInput');
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+    } else {
+        passwordInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+    }
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--bg);
-    color: var(--text);
-    margin: 0;
-    padding: 0;
-    direction: rtl;
-    scroll-behavior: smooth; /* Плавная прокрутка */
+window.onscroll = function() { scrollFunction() };
+function scrollFunction() {
+    const btn = document.getElementById("scrollTopBtn");
+    if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+        btn.style.display = "block";
+    } else {
+        btn.style.display = "none";
+    }
+}
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* ⬆️ Кнопка Наверх */
-#scrollTopBtn {
-    display: none; /* Скрыта по умолчанию */
-    position: fixed;
-    bottom: 20px;
-    left: 20px; /* Слева, так как иврит */
-    z-index: 99;
-    font-size: 24px;
-    border: none;
-    outline: none;
-    background-color: var(--primary);
-    color: white;
-    cursor: pointer;
-    padding: 10px 15px;
-    border-radius: 50%;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    width: auto;
-}
-#scrollTopBtn:hover { background-color: #0056b3; }
-
-/* 🔐 Login Styles + Eye Fix */
-#login-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8); z-index: 9999;
-    display: flex; justify-content: center; align-items: center;
-}
-.login-box {
-    background: white; padding: 30px; border-radius: 8px;
-    text-align: center; width: 300px;
-}
-.password-container {
-    position: relative; width: 100%;
-}
-.password-container input {
-    width: 100%; padding-left: 40px; margin-bottom: 0;
-}
-/* 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ ДЛЯ ГЛАЗА */
-#togglePassword {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    font-size: 1.2rem;
-    z-index: 10; /* Чтобы был поверх поля ввода */
-    background: white; /* Чтобы линия ввода не перечеркивала его */
-    padding: 0 2px;
+async function checkLogin() {
+    const password = document.getElementById('passwordInput').value;
+    const errorMsg = document.getElementById('loginError');
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-view').classList.remove('hidden');
+            fetchTasks();
+        } else {
+            errorMsg.style.display = 'block';
+        }
+    } catch (e) { alert('שגיאת תקשורת'); }
 }
 
-header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
-.container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
-.card { background: var(--card-bg); border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-.hidden { display: none; }
-.form-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 5px; font-weight: bold; }
-input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
-.checkbox-group { display: flex; align-items: center; gap: 10px; background: #fff0f0; padding: 10px; border-radius: 4px; }
-.checkbox-group input { width: auto; transform: scale(1.5); }
-.checkbox-group label { margin: 0; cursor: pointer; }
-.row { display: flex; gap: 15px; }
-.row .form-group { flex: 1; }
-button { cursor: pointer; padding: 10px 15px; border: none; border-radius: 4px; font-size: 1rem; width: 100%; margin-bottom: 10px; }
-.btn-primary { background: var(--primary); color: white; }
-.btn-excel { background: #217346; color: white; }
-.btn-secondary { background: #6c757d; color: white; }
-.btn-success { background: var(--success); color: white; }
-.btn-danger { background: #dc3545; color: white; }
+document.getElementById('passwordInput').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') checkLogin();
+});
 
-/* Task Items */
-.task-item {
-    border-right: 5px solid var(--primary); padding: 15px; background: white;
-    margin-bottom: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px;
-    cursor: pointer; transition: transform 0.1s; position: relative;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('startDate').valueAsDate = new Date();
+    document.getElementById('addTaskForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const isImportant = document.getElementById('isImportant').checked;
+        
+        // Сбор всех полей, включая новые
+        const newTask = {
+            description: document.getElementById('desc').value,
+            performer: document.getElementById('performer').value,
+            contractor: document.getElementById('contractor').value,
+            contractor_contact: document.getElementById('contact').value,
+            person_in_charge: document.getElementById('inCharge').value,
+            
+            // Новые поля
+            materials: document.getElementById('materials').value,
+            supplier: document.getElementById('supplier').value,
+            supplier_contact: document.getElementById('supplierContact').value,
+
+            start_date: document.getElementById('startDate').value,
+            due_date: document.getElementById('dueDate').value,
+            priority: isImportant ? 'חשוב' : 'רגיל'
+        };
+
+        await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newTask)
+        });
+
+        e.target.reset();
+        document.getElementById('startDate').valueAsDate = new Date();
+        fetchTasks();
+    });
+});
+
+async function fetchTasks() {
+    const res = await fetch(API_URL);
+    currentTasks = await res.json();
+    renderTasks();
 }
-.task-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.task-item:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.task-item.important { border: 2px solid #dc3545; border-right: 6px solid #dc3545; background-color: #fffbfb; }
-.task-item.extended { background-color: #fff8e1; }
-.task-item.done { border-right-color: var(--success) !important; opacity: 0.6; background-color: #f0fff4 !important; }
 
-/* 🔥 СТИЛЬ ДЛЯ УДАЛЕННЫХ ЗАДАЧ */
-.task-item.deleted {
-    background-color: #e9ecef !important;
-    border-right-color: #6c757d !important;
-    border: 1px solid #ddd;
-    opacity: 0.5;
+function calculateProgress(start, end) {
+    const startDate = new Date(start).getTime();
+    const endDate = new Date(end).getTime();
+    const now = new Date().getTime();
+    if (now < startDate) return 0;
+    if (now > endDate) return 100;
+    const total = endDate - startDate;
+    const elapsed = now - startDate;
+    if (total <= 0) return 100; 
+    return Math.floor((elapsed / total) * 100);
 }
-.task-item.deleted strong { text-decoration: line-through; color: #6c757d; }
 
-.status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
-.status-process { background: #fff3cd; color: #856404; }
-.status-done { background: #d4edda; color: #155724; }
-.status-deleted { background: #d6d8db; color: #383d41; }
+function renderTasks() {
+    const list = document.getElementById('tasksList');
+    list.innerHTML = '';
 
-.progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; height: 8px; margin-top: 5px; overflow: hidden; }
-.progress-bar { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.5s ease-in-out; }
-.progress-bar.danger { background-color: #dc3545; }
-.progress-bar.warning { background-color: #ffc107; }
+    currentTasks.forEach(task => {
+        const div = document.createElement('div');
+        
+        let classes = 'task-item';
+        if (task.status === 'בוצע') classes += ' done';
+        else if (task.priority === 'חשוב') classes += ' important';
+        if (task.extension_reason && task.extension_reason.trim() !== '') classes += ' extended';
 
-.detail-row { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.detail-label { font-weight: bold; color: #666; font-size: 0.9rem; }
-.detail-value { font-size: 1.1rem; }
-@media (max-width: 600px) { .row { flex-direction: column; gap: 0; } }
+        div.className = classes;
+        
+        let statusClass = task.status === 'בוצע' ? 'status-done' : 'status-process';
+        const priorityIcon = task.priority === 'חשוב' ? '🔥' : '';
+        const extendedIcon = (task.extension_reason && task.extension_reason !== '') ? '⏱️' : '';
+
+        const progressPercent = calculateProgress(task.start_date, task.due_date);
+        let progressColor = '';
+        if (progressPercent > 75) progressColor = 'warning';
+        if (progressPercent > 90) progressColor = 'danger';
+        
+        let displayProgress = progressPercent;
+        let progressStyle = `width: ${displayProgress}%;`;
+        if (task.status === 'בוצע') progressStyle += 'background-color: #28a745;';
+
+        div.innerHTML = `
+            <div class="task-header">
+                <div>
+                    <strong>${priorityIcon} ${task.description}</strong> ${extendedIcon}<br>
+                    <small>📅 ${task.start_date} ➝ ${task.due_date}</small>
+                </div>
+                <div>
+                    <span class="status-badge ${statusClass}">${task.status}</span>
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar ${progressColor}" style="${progressStyle}"></div>
+            </div>
+        `;
+        
+        div.onclick = () => showTaskDetails(task.id);
+        list.appendChild(div);
+    });
+}
+
+function showTaskDetails(id) {
+    const task = currentTasks.find(t => t.id === id);
+    if (!task) return;
+
+    const content = document.getElementById('detail-content');
+    const isDone = task.status === 'בוצע';
+
+    let html = `
+        <h3>${task.description}</h3>
+        <div class="detail-row"><div class="detail-label">סטטוס</div><div class="detail-value">${task.status}</div></div>
+        
+        <h4 style="margin:15px 0 5px; color:#0d47a1; border-bottom:1px solid #ddd;">אנשים</h4>
+        <div class="detail-row"><div class="detail-label">מבצע</div><div class="detail-value">${task.performer}</div></div>
+        <div class="detail-row"><div class="detail-label">אחראי</div><div class="detail-value">${task.person_in_charge}</div></div>
+        <div class="detail-row"><div class="detail-label">קבלן</div><div class="detail-value">${task.contractor || '-'}</div></div>
+        <div class="detail-row"><div class="detail-label">פרטי קשר קבלן</div><div class="detail-value">${task.contractor_contact || '-'}</div></div>
+
+        <h4 style="margin:15px 0 5px; color:#0d47a1; border-bottom:1px solid #ddd;">רכש ולוגיסטיקה</h4>
+        <div class="detail-row"><div class="detail-label">חומרים דרושים</div><div class="detail-value">${task.materials || '-'}</div></div>
+        <div class="detail-row"><div class="detail-label">ספק</div><div class="detail-value">${task.supplier || '-'}</div></div>
+        <div class="detail-row"><div class="detail-label">איש קשר ספק</div><div class="detail-value">${task.supplier_contact || '-'}</div></div>
+
+        <h4 style="margin:15px 0 5px; color:#0d47a1; border-bottom:1px solid #ddd;">זמנים</h4>
+        <div class="detail-row"><div class="detail-label">תאריך התחלה</div><div class="detail-value">${task.start_date}</div></div>
+        <div class="detail-row"><div class="detail-label">תאריך יעד</div><div class="detail-value">${task.due_date}</div></div>
+    `;
+
+    if (task.extension_reason) {
+        html += `<div class="detail-row" style="background:#fff3cd; padding:5px;"><div class="detail-label" style="color:#d39e00">סיבת הארכה</div><div class="detail-value">${task.extension_reason}</div></div>`;
+    }
+
+    html += `<div style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">`;
+
+    if (!isDone) {
+        html += `
+            <h4>פעולות:</h4>
+            <div class="form-group">
+                <label>הארכת מועד:</label>
+                <input type="date" id="newDate" value="${task.due_date}">
+                <input type="text" id="reason" placeholder="סיבת הארכה..." style="margin-top:5px;">
+                <button onclick="extendTask(${task.id}, '${task.due_date}')" class="btn-primary" style="margin-top:5px;">עדכן תאריך</button>
+            </div>
+            <button onclick="markAsDone(${task.id})" class="btn-success">✅ סמן כ-בוצע</button>
+            <button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
+        `;
+    } else {
+        html += `<p style="color: green; font-weight:bold;">המשימה הושלמה</p>`;
+    }
+    
+    html += `</div>`;
+    content.innerHTML = html;
+    
+    document.getElementById('main-view').classList.add('hidden');
+    document.getElementById('detail-view').classList.remove('hidden');
+}
+
+function showMainView() {
+    document.getElementById('detail-view').classList.add('hidden');
+    document.getElementById('main-view').classList.remove('hidden');
+    fetchTasks();
+}
+
+async function markAsDone(id) {
+    if(!confirm('האם לסגור את המשימה?')) return;
+    await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'בוצע' })
+    });
+    showMainView();
+}
+
+async function extendTask(id, oldDate) {
+    const newDate = document.getElementById('newDate').value;
+    const reason = document.getElementById('reason').value;
+    if (newDate === oldDate) { alert('יש לבחור תאריך חדש'); return; }
+    if (!reason.trim()) { alert('חובה להזין סיבת הארכה!'); return; }
+    await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'בתהליך', due_date: newDate, extension_reason: reason })
+    });
+    showMainView();
+}
+
+async function deleteTask(id) {
+    if(!confirm('להעביר לארכיון?')) return;
+    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    showMainView();
+}

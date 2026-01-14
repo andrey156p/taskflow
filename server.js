@@ -23,9 +23,42 @@ const pool = new Pool({
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// --- ЛОГИКА EXCEL (RTL + Закрепление + Порядок) ---
+// 🔥 АВТО-ОБНОВЛЕНИЕ ТАБЛИЦЫ (Добавляем новые колонки в старую базу)
+async function updateTableSchema() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS tasks (
+                id SERIAL PRIMARY KEY,
+                description TEXT,
+                performer TEXT,
+                contractor TEXT,
+                contractor_contact TEXT,
+                person_in_charge TEXT,
+                start_date TEXT,
+                due_date TEXT,
+                extension_reason TEXT,
+                priority TEXT DEFAULT 'רגיל',
+                status TEXT DEFAULT 'בתהליך',
+                materials TEXT,
+                supplier TEXT,
+                supplier_contact TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        // Пытаемся добавить колонки, если таблица уже была создана раньше
+        await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS materials TEXT");
+        await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS supplier TEXT");
+        await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS supplier_contact TEXT");
+        console.log("✅ Database schema updated successfully");
+    } catch (e) {
+        console.log("ℹ️ Schema update info:", e.message);
+    }
+}
+updateTableSchema();
+
+// --- EXCEL LOGIC ---
 async function generateExcelBuffer() {
-    // Берем все задачи, даже удаленные (чтобы были в отчете)
+    // В Excel попадают ВСЕ задачи (включая удаленные)
     const result = await pool.query('SELECT * FROM tasks ORDER BY due_date ASC');
     const tasks = result.rows;
 
@@ -44,43 +77,42 @@ async function generateExcelBuffer() {
             currentWeekStart = weekKey;
             const dateStr = weekStart.toLocaleDateString('he-IL');
             dataForExcel.push({});
-            // Заголовок разделителя пишем в колонку "Дата начала" (самую правую)
-            dataForExcel.push({
-                "תאריך התחלה": `--- שבוע: ${dateStr} ---`
-            });
+            // Заголовок разделителя
+            dataForExcel.push({ "תאריך התחלה": `--- שבוע: ${dateStr} ---` });
         }
 
-        // ПОРЯДОК КОЛОНОК (Справа налево для Excel RTL: A, B, C...)
+        // 📊 ПОРЯДОК КОЛОНОК (Справа налево для Excel RTL)
+        // A=Start Date, B=End Date...
         dataForExcel.push({
-            "תאריך התחלה": task.start_date,      // A (Самая правая)
-            "תאריך יעד": task.due_date,          // B
-            "סיבת הארכה": task.extension_reason, // C
-            "סטטוס": task.status,                // D
-            "עדיפות": task.priority,             // E
-            "תיאור משימה": task.description,     // F
-            "מבצע": task.performer,              // G
-            "אחראי": task.person_in_charge,      // H
-            "קבלן": task.contractor,             // I
-            "פרטי קשר קבלן": task.contractor_contact, // J
-            "מזהה": task.id                      // K
+            "תאריך התחלה": task.start_date,      
+            "תאריך יעד": task.due_date,          
+            "סיבת הארכה": task.extension_reason, 
+            "סטטוס": task.status,                
+            "עדיפות": task.priority,             
+            "תיאור משימה": task.description,     
+            "חומרים דרושים": task.materials,     // Новое
+            "מבצע": task.performer,              
+            "אחראי": task.person_in_charge,      
+            "קבלן": task.contractor,             
+            "פרטי קשר קבלן": task.contractor_contact, 
+            "ספק": task.supplier,                // Новое
+            "פרטי קשר ספק": task.supplier_contact, // Новое
+            "מזהה": task.id                      
         });
     });
 
     const wb = xlsx.utils.book_new();
-    
-    // Включаем RTL для всей книги
     wb.Workbook = { Views: [{ RTL: true }] };
-    
     const ws = xlsx.utils.json_to_sheet(dataForExcel);
 
-    // Закрепляем верхнюю строку (Freeze Top Row)
-    // xSplit: 0 (колонок слева), ySplit: 1 (строк сверху)
-    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+    // Закрепление шапки
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
 
     // Ширина колонок
     ws['!cols'] = [
-        {wch:15}, {wch:15}, {wch:25}, {wch:10}, {wch:10}, 
-        {wch:40}, {wch:15}, {wch:15}, {wch:15}, {wch:20}, {wch:5}
+        {wch:12}, {wch:12}, {wch:20}, {wch:10}, {wch:8}, 
+        {wch:35}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, 
+        {wch:15}, {wch:15}, {wch:15}, {wch:5}
     ];
 
     xlsx.utils.book_append_sheet(wb, ws, "Tasks Report");
@@ -98,8 +130,8 @@ cron.schedule('0 7 * * 0', async () => {
         });
         const mailOptions = {
             from: EMAIL_USER,
-            to: EMAIL_TO, // Nodemailer сам поймет запятые
-            subject: '📊 TaskFlow - דוח שבועי (Weekly Report)',
+            to: EMAIL_TO,
+            subject: '📊 TaskFlow - דוח שבועי',
             text: 'מצורף הדוח השבועי.',
             attachments: [{ filename: `Weekly_Report.xlsx`, content: excelBuffer }]
         };
@@ -114,13 +146,14 @@ app.post('/api/login', (req, res) => {
     else res.status(401).json({ success: false });
 });
 
+// GET: Список задач (СТРОГО БЕЗ УДАЛЕННЫХ)
 app.get('/api/tasks', async (req, res) => {
     try {
-        // Сортировка: Сначала важные, потом обычные. Удаленные - в самом конце.
         const result = await pool.query(`
             SELECT * FROM tasks 
+            WHERE status != 'נמחק'
             ORDER BY 
-            CASE WHEN status = 'נמחק' THEN 2 WHEN status = 'בוצע' THEN 1 ELSE 0 END,
+            CASE WHEN status = 'בוצע' THEN 1 ELSE 0 END,
             CASE WHEN priority = 'חשוב' THEN 0 ELSE 1 END,
             due_date ASC
         `);
@@ -129,9 +162,17 @@ app.get('/api/tasks', async (req, res) => {
 });
 
 app.post('/api/tasks', async (req, res) => {
-    const { description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority } = req.body;
+    // Получаем новые поля
+    const { description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, materials, supplier, supplier_contact } = req.body;
     try {
-        const result = await pool.query(`INSERT INTO tasks (description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, status, extension_reason) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'בתהליך', '') RETURNING id`, [description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority]);
+        const sql = `
+            INSERT INTO tasks (description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, materials, supplier, supplier_contact, status, extension_reason) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'בתהליך', '') 
+            RETURNING id
+        `;
+        const values = [description, performer, contractor, contractor_contact, person_in_charge, start_date, due_date, priority, materials, supplier, supplier_contact];
+        
+        const result = await pool.query(sql, values);
         res.json({ id: result.rows[0].id });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -148,16 +189,12 @@ app.put('/api/tasks/:id', async (req, res) => {
     try { await pool.query(sql, values); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 🔥 МЯГКОЕ УДАЛЕНИЕ (Вместо DELETE делаем UPDATE)
 app.delete('/api/tasks/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        // Не удаляем строку, а ставим статус 'נמחק'
         await pool.query("UPDATE tasks SET status = 'נמחק' WHERE id = $1", [id]);
         res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/export', async (req, res) => {
