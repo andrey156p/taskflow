@@ -1,9 +1,11 @@
 const API_URL = '/api/tasks';
 let currentTasks = [];
 
+// 👁️ Управление видимостью пароля
 function togglePasswordVisibility() {
     const passwordInput = document.getElementById('passwordInput');
     const toggleBtn = document.getElementById('togglePasswordBtn');
+    
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
         toggleBtn.textContent = '🙈';
@@ -13,6 +15,7 @@ function togglePasswordVisibility() {
     }
 }
 
+// ⬆️ Кнопка "Наверх"
 window.onscroll = function() { scrollFunction() };
 function scrollFunction() {
     const btn = document.getElementById("scrollTopBtn");
@@ -26,6 +29,7 @@ function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// 🔐 Вход в систему
 async function checkLogin() {
     const password = document.getElementById('passwordInput').value;
     const errorMsg = document.getElementById('loginError');
@@ -50,10 +54,11 @@ document.getElementById('passwordInput').addEventListener('keypress', function (
     if (e.key === 'Enter') checkLogin();
 });
 
+// 🌱 Инициализация и Обработчики форм
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('startDate').valueAsDate = new Date();
     
-    // Создание задачи
+    // 1. Создание новой задачи
     document.getElementById('addTaskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const isImportant = document.getElementById('isImportant').checked;
@@ -83,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchTasks();
     });
 
-    // 🔥 СОХРАНЕНИЕ РЕДАКТИРОВАНИЯ
+    // 2. Сохранение редактирования
     document.getElementById('editTaskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('editTaskId').value;
@@ -109,17 +114,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         alert('המשימה עודכנה בהצלחה!');
-        cancelEdit(); // Закрыть форму
-        showMainView(); // Вернуться в список
+        cancelEdit(); 
+        showMainView(); 
     });
 });
 
+// 🔄 Получение списка задач
 async function fetchTasks() {
     const res = await fetch(API_URL);
     currentTasks = await res.json();
     renderTasks();
 }
 
+// 📊 Расчет прогресса
 function calculateProgress(start, end) {
     const startDate = new Date(start).getTime();
     const endDate = new Date(end).getTime();
@@ -132,6 +139,7 @@ function calculateProgress(start, end) {
     return Math.floor((elapsed / total) * 100);
 }
 
+// 🎨 Отрисовка списка задач
 function renderTasks() {
     const list = document.getElementById('tasksList');
     list.innerHTML = '';
@@ -180,6 +188,7 @@ function renderTasks() {
     });
 }
 
+// 🔎 Просмотр деталей задачи
 function showTaskDetails(id) {
     const task = currentTasks.find(t => t.id === id);
     if (!task) return;
@@ -211,12 +220,14 @@ function showTaskDetails(id) {
         html += `<div class="detail-row" style="background:#fff3cd; padding:5px;"><div class="detail-label" style="color:#d39e00">סיבת הארכה</div><div class="detail-value">${task.extension_reason}</div></div>`;
     }
 
-    // Кнопки действий
     html += `<div style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">`;
 
     if (!isDone) {
         html += `
-            <button onclick="enableEditMode(${task.id})" class="btn-secondary" style="background:#ff9800; color:white; margin-bottom:15px;">✏️ עריכת פרטים</button>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <button onclick="enableEditMode(${task.id})" class="btn-secondary" style="background:#ff9800; color:white; flex:1;">✏️ עריכה</button>
+                <button onclick="printPriceQuote(${task.id})" class="btn-secondary" style="background:#1976d2; color:white; flex:1;">📄 בקשת מחיר (PDF)</button>
+            </div>
 
             <h4>פעולות:</h4>
             <div class="form-group">
@@ -235,20 +246,18 @@ function showTaskDetails(id) {
     html += `</div>`;
     content.innerHTML = html;
     
-    // Скрываем форму редактирования, показываем детали
+    // Управление видимостью панелей
     document.getElementById('edit-form-container').classList.add('hidden');
     document.getElementById('detail-content').classList.remove('hidden');
-
     document.getElementById('main-view').classList.add('hidden');
     document.getElementById('detail-view').classList.remove('hidden');
 }
 
-// 🔥 ВКЛЮЧЕНИЕ РЕЖИМА РЕДАКТИРОВАНИЯ
+// ✏️ Режим редактирования
 function enableEditMode(id) {
     const task = currentTasks.find(t => t.id === id);
     if (!task) return;
 
-    // Заполняем форму текущими данными
     document.getElementById('editTaskId').value = task.id;
     document.getElementById('editDesc').value = task.description;
     document.getElementById('editIsImportant').checked = (task.priority === 'חשוב');
@@ -262,7 +271,6 @@ function enableEditMode(id) {
     document.getElementById('editStartDate').value = task.start_date;
     document.getElementById('editDueDate').value = task.due_date;
 
-    // Скрываем детали, показываем форму
     document.getElementById('detail-content').classList.add('hidden');
     document.getElementById('edit-form-container').classList.remove('hidden');
 }
@@ -305,4 +313,113 @@ async function deleteTask(id) {
     if(!confirm('להעביר לארכיון?')) return;
     await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
     showMainView();
+}
+
+// 📄 ГЕНЕРАЦИЯ PDF (ЗАПРОС ЦЕН)
+function printPriceQuote(id) {
+    const task = currentTasks.find(t => t.id === id);
+    if (!task) return;
+
+    // Берем данные
+    const supplierName = task.supplier || "_______________";
+    const contactName = task.supplier_contact || "";
+    // 🔥 БЕРЕМ ДАННЫЕ ИЗ СТРОКИ "חומרים דרושים (ציוד)"
+    const materialsList = task.materials || "לפי מפרט מצורף / See attached list";
+    const date = new Date().toLocaleDateString('he-IL');
+
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="he" dir="rtl">
+        <head>
+            <title>Request for Price Quote - ${task.description}</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; }
+                .header { text-align: center; border-bottom: 3px solid #0d47a1; padding-bottom: 20px; margin-bottom: 30px; }
+                .logo { font-size: 40px; }
+                .company-name { font-size: 24px; font-weight: bold; color: #0d47a1; margin: 0; }
+                .sub-header { display: flex; justify-content: space-between; margin-bottom: 40px; }
+                .title { text-align: center; font-size: 22px; font-weight: bold; margin-bottom: 30px; text-decoration: underline; }
+                
+                .content-box { border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: #f9f9f9; margin-bottom: 20px; }
+                .field-row { margin-bottom: 15px; font-size: 16px; }
+                .label { font-weight: bold; display: inline-block; width: 120px; }
+                
+                .materials-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                .materials-table th, .materials-table td { border: 1px solid #ccc; padding: 12px; text-align: right; }
+                .materials-table th { background: #e3f2fd; color: #0d47a1; }
+                
+                .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #666; border-top: 1px solid #ccc; padding-top: 20px; }
+                .signature-area { margin-top: 50px; display: flex; justify-content: space-between; }
+                .sign-line { border-top: 1px solid #000; width: 200px; margin-top: 40px; text-align: center; padding-top: 5px; }
+
+                @media print {
+                    .no-print { display: none; }
+                    body { -webkit-print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            
+            <div class="header">
+                <div class="logo">🏗️ TaskFlow Pro</div>
+                <p>ניהול פרויקטים ובנייה</p>
+            </div>
+
+            <div class="sub-header">
+                <div><strong>תאריך:</strong> ${date}</div>
+                <div><strong>לכבוד:</strong> ${supplierName} ${contactName ? `(${contactName})` : ''}</div>
+            </div>
+
+            <div class="title">הנדון: בקשה להצעת מחיר (RFQ)</div>
+
+            <p>שלום רב,</p>
+            <p>נודה לקבלת הצעת מחיר עבור החומרים/העבודות בפרויקט <strong>"${task.description}"</strong>.</p>
+
+            <table class="materials-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>תיאור פריט / חומר</th>
+                        <th>הערות</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><strong>${materialsList}</strong></td>
+                        <td>דחוף</td>
+                    </tr>
+                    <tr><td>2</td><td></td><td></td></tr>
+                    <tr><td>3</td><td></td><td></td></tr>
+                </tbody>
+            </table>
+
+            <div class="content-box" style="margin-top:20px;">
+                <div class="field-row"><span class="label">תאריך אספקה:</span> ${task.due_date}</div>
+                <div class="field-row"><span class="label">איש קשר:</span> ${task.person_in_charge}</div>
+            </div>
+
+            <div class="signature-area">
+                <div class="sign-line">חתימת המזמין</div>
+                <div class="sign-line">חתימת הספק</div>
+            </div>
+
+            <div class="footer">
+                הופק באמצעות מערכת TaskFlow Pro
+            </div>
+
+            <div class="no-print" style="text-align:center; margin-top:20px;">
+                <button onclick="window.print()" style="font-size:20px; padding:10px 20px; cursor:pointer; background:#2e7d32; color:white; border:none; border-radius:5px;">🖨️ הדפס / שמור כ-PDF</button>
+            </div>
+
+            <script>
+                window.onload = function() { setTimeout(() => window.print(), 500); };
+            </script>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
 }
