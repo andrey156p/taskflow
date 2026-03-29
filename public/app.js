@@ -139,7 +139,7 @@ function calculateProgress(start, end) {
     return Math.floor((elapsed / total) * 100);
 }
 
-// 🎨 Отрисовка списка задач
+// 🎨 Отрисовка списка задач (ОБНОВЛЕННАЯ: с плашками и датами)
 function renderTasks() {
     const list = document.getElementById('tasksList');
     list.innerHTML = '';
@@ -155,7 +155,12 @@ function renderTasks() {
         div.className = classes;
         
         let statusClass = task.status === 'בוצע' ? 'status-done' : 'status-process';
-        const priorityIcon = task.priority === 'חשוב' ? '🔥' : '';
+        
+        // 🔥 Яркая плашка для важных задач (только если не выполнено)
+        const priorityBadge = task.priority === 'חשוב' && task.status !== 'בוצע' 
+            ? '<span style="background: red; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 5px;">🔥 דחוף</span>' 
+            : '';
+            
         const extendedIcon = (task.extension_reason && task.extension_reason !== '') ? '⏱️' : '';
 
         const progressPercent = calculateProgress(task.start_date, task.due_date);
@@ -167,11 +172,14 @@ function renderTasks() {
         let progressStyle = `width: ${displayProgress}%;`;
         if (task.status === 'בוצע') progressStyle += 'background-color: #28a745;';
 
+        // 📅 ИСПРАВЛЕНИЕ: Даты текстом, чтобы иврит (RTL) не переворачивал их
         div.innerHTML = `
             <div class="task-header">
                 <div>
-                    <strong>${priorityIcon} ${task.description}</strong> ${extendedIcon}<br>
-                    <small>📅 ${task.start_date} ➝ ${task.due_date}</small>
+                    <strong>${priorityBadge} ${task.description}</strong> ${extendedIcon}<br>
+                    <small style="color: #666; font-weight: 500;">
+                        📅 התחלה: <span dir="ltr">${task.start_date}</span> | יעד: <span dir="ltr">${task.due_date}</span>
+                    </small>
                 </div>
                 <div>
                     <span class="status-badge ${statusClass}">${task.status}</span>
@@ -315,16 +323,20 @@ async function deleteTask(id) {
     showMainView();
 }
 
-// 📄 ГЕНЕРАЦИЯ PDF (ЗАПРОС ЦЕН)
+// 📄 ГЕНЕРАЦИЯ PDF (ОБНОВЛЕННАЯ: исправлен список материалов)
 function printPriceQuote(id) {
     const task = currentTasks.find(t => t.id === id);
     if (!task) return;
 
-    // Берем данные
     const supplierName = task.supplier || "_______________";
     const contactName = task.supplier_contact || "";
-    // 🔥 БЕРЕМ ДАННЫЕ ИЗ СТРОКИ "חומרים דרושים (ציוד)"
-    const materialsList = task.materials || "לפי מפרט מצורף / See attached list";
+    
+    // 📦 ИСПРАВЛЕНИЕ: Строгая проверка на наличие материалов
+    let materialsList = "לפי מפרט מצורף / See attached list";
+    if (task.materials && task.materials.trim() !== "") {
+        materialsList = task.materials;
+    }
+
     const date = new Date().toLocaleDateString('he-IL');
 
     const printWindow = window.open('', '_blank', 'width=800,height=900');
@@ -397,7 +409,7 @@ function printPriceQuote(id) {
             </table>
 
             <div class="content-box" style="margin-top:20px;">
-                <div class="field-row"><span class="label">תאריך אספקה:</span> ${task.due_date}</div>
+                <div class="field-row"><span class="label">תאריך אספקה:</span> <span dir="ltr">${task.due_date}</span></div>
                 <div class="field-row"><span class="label">איש קשר:</span> ${task.person_in_charge}</div>
             </div>
 
