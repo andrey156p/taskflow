@@ -219,10 +219,11 @@ function showTaskDetails(id) {
     html += `<div style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">`;
 
     if (!isDone) {
+        // 🔥 ИСПРАВЛЕНИЕ ЗДЕСЬ: добавлены кавычки '${task.id}'
         html += `
             <div style="display:flex; gap:10px; margin-bottom:15px;">
-                <button onclick="enableEditMode(${task.id})" class="btn-secondary" style="background:#ff9800; color:white; flex:1;">✏️ עריכה</button>
-                <button onclick="printPriceQuote(${task.id})" class="btn-secondary" style="background:#1976d2; color:white; flex:1;">📄 בקשת מחיר (PDF)</button>
+                <button onclick="enableEditMode('${task.id}')" class="btn-secondary" style="background:#ff9800; color:white; flex:1;">✏️ עריכה</button>
+                <button onclick="printPriceQuote('${task.id}')" class="btn-secondary" style="background:#1976d2; color:white; flex:1;">📄 בקשת מחיר (PDF)</button>
             </div>
 
             <h4>פעולות:</h4>
@@ -230,22 +231,21 @@ function showTaskDetails(id) {
                 <label>הארכת מועד:</label>
                 <input type="date" id="newDate" value="${task.due_date}">
                 <input type="text" id="reason" placeholder="סיבת הארכה..." style="margin-top:5px;">
-                <button onclick="extendTask(${task.id}, '${task.due_date}')" class="btn-primary" style="margin-top:5px;">עדכן תאריך</button>
+                <button onclick="extendTask('${task.id}', '${task.due_date}')" class="btn-primary" style="margin-top:5px;">עדכן תאריך</button>
             </div>
-            <button onclick="markAsDone(${task.id})" class="btn-success">✅ סמן כ-בוצע</button>
+            <button onclick="markAsDone('${task.id}')" class="btn-success">✅ סמן כ-בוצע</button>
         `;
     } else {
         html += `
             <div style="display:flex; gap:10px; margin-bottom:15px;">
-                <button onclick="printPriceQuote(${task.id})" class="btn-secondary" style="background:#1976d2; color:white; flex:1;">📄 בקשת מחיר (PDF)</button>
+                <button onclick="printPriceQuote('${task.id}')" class="btn-secondary" style="background:#1976d2; color:white; flex:1;">📄 בקשת מחיר (PDF)</button>
             </div>
             <p style="color: green; font-weight:bold; text-align:center; font-size:1.1rem;">✅ המשימה הושלמה</p>
         `;
     }
     
-    // Кнопка удаления доступна всегда
     html += `
-            <button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
+            <button onclick="deleteTask('${task.id}')" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
         </div>
     `;
     
