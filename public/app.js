@@ -1,7 +1,6 @@
 const API_URL = '/api/tasks';
 let currentTasks = [];
 
-// 👁️ Управление видимостью пароля
 function togglePasswordVisibility() {
     const passwordInput = document.getElementById('passwordInput');
     const toggleBtn = document.getElementById('togglePasswordBtn');
@@ -15,7 +14,6 @@ function togglePasswordVisibility() {
     }
 }
 
-// ⬆️ Кнопка "Наверх"
 window.onscroll = function() { scrollFunction() };
 function scrollFunction() {
     const btn = document.getElementById("scrollTopBtn");
@@ -29,7 +27,6 @@ function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 🔐 Вход в систему
 async function checkLogin() {
     const password = document.getElementById('passwordInput').value;
     const errorMsg = document.getElementById('loginError');
@@ -54,11 +51,9 @@ document.getElementById('passwordInput').addEventListener('keypress', function (
     if (e.key === 'Enter') checkLogin();
 });
 
-// 🌱 Инициализация и Обработчики форм
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('startDate').valueAsDate = new Date();
     
-    // 1. Создание новой задачи
     document.getElementById('addTaskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const isImportant = document.getElementById('isImportant').checked;
@@ -88,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchTasks();
     });
 
-    // 2. Сохранение редактирования
     document.getElementById('editTaskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('editTaskId').value;
@@ -119,14 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// 🔄 Получение списка задач
 async function fetchTasks() {
     const res = await fetch(API_URL);
     currentTasks = await res.json();
     renderTasks();
 }
 
-// 📊 Расчет прогресса
 function calculateProgress(start, end) {
     const startDate = new Date(start).getTime();
     const endDate = new Date(end).getTime();
@@ -139,7 +131,6 @@ function calculateProgress(start, end) {
     return Math.floor((elapsed / total) * 100);
 }
 
-// 🎨 Отрисовка списка задач (ОБНОВЛЕННАЯ: с плашками и датами)
 function renderTasks() {
     const list = document.getElementById('tasksList');
     list.innerHTML = '';
@@ -156,7 +147,6 @@ function renderTasks() {
         
         let statusClass = task.status === 'בוצע' ? 'status-done' : 'status-process';
         
-        // 🔥 Яркая плашка для важных задач (только если не выполнено)
         const priorityBadge = task.priority === 'חשוב' && task.status !== 'בוצע' 
             ? '<span style="background: red; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 5px;">🔥 דחוף</span>' 
             : '';
@@ -172,7 +162,6 @@ function renderTasks() {
         let progressStyle = `width: ${displayProgress}%;`;
         if (task.status === 'בוצע') progressStyle += 'background-color: #28a745;';
 
-        // 📅 ИСПРАВЛЕНИЕ: Даты текстом, чтобы иврит (RTL) не переворачивал их
         div.innerHTML = `
             <div class="task-header">
                 <div>
@@ -196,7 +185,6 @@ function renderTasks() {
     });
 }
 
-// 🔎 Просмотр деталей задачи
 function showTaskDetails(id) {
     const task = currentTasks.find(t => t.id === id);
     if (!task) return;
@@ -245,23 +233,30 @@ function showTaskDetails(id) {
                 <button onclick="extendTask(${task.id}, '${task.due_date}')" class="btn-primary" style="margin-top:5px;">עדכן תאריך</button>
             </div>
             <button onclick="markAsDone(${task.id})" class="btn-success">✅ סמן כ-בוצע</button>
-            <button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
         `;
     } else {
-        html += `<p style="color: green; font-weight:bold;">המשימה הושלמה</p>`;
+        html += `
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <button onclick="printPriceQuote(${task.id})" class="btn-secondary" style="background:#1976d2; color:white; flex:1;">📄 בקשת מחיר (PDF)</button>
+            </div>
+            <p style="color: green; font-weight:bold; text-align:center; font-size:1.1rem;">✅ המשימה הושלמה</p>
+        `;
     }
     
-    html += `</div>`;
+    // Кнопка удаления доступна всегда
+    html += `
+            <button onclick="deleteTask(${task.id})" class="btn-danger" style="margin-top: 15px;">🗑 העבר לארכיון (מחק)</button>
+        </div>
+    `;
+    
     content.innerHTML = html;
     
-    // Управление видимостью панелей
     document.getElementById('edit-form-container').classList.add('hidden');
     document.getElementById('detail-content').classList.remove('hidden');
     document.getElementById('main-view').classList.add('hidden');
     document.getElementById('detail-view').classList.remove('hidden');
 }
 
-// ✏️ Режим редактирования
 function enableEditMode(id) {
     const task = currentTasks.find(t => t.id === id);
     if (!task) return;
@@ -323,7 +318,6 @@ async function deleteTask(id) {
     showMainView();
 }
 
-// 📄 ГЕНЕРАЦИЯ PDF (ОБНОВЛЕННАЯ: исправлен список материалов)
 function printPriceQuote(id) {
     const task = currentTasks.find(t => t.id === id);
     if (!task) return;
@@ -331,7 +325,6 @@ function printPriceQuote(id) {
     const supplierName = task.supplier || "_______________";
     const contactName = task.supplier_contact || "";
     
-    // 📦 ИСПРАВЛЕНИЕ: Строгая проверка на наличие материалов
     let materialsList = "לפי מפרט מצורף / See attached list";
     if (task.materials && task.materials.trim() !== "") {
         materialsList = task.materials;
@@ -340,6 +333,11 @@ function printPriceQuote(id) {
     const date = new Date().toLocaleDateString('he-IL');
 
     const printWindow = window.open('', '_blank', 'width=800,height=900');
+    
+    if (!printWindow) {
+        alert("⚠️ הדפדפן שלך חסם את החלון הקופץ!\nאנא לחץ על סמל החסימה בשורת הכתובת (למעלה) ובחר 'אפשר תמיד חלונות קופצים' (Always allow pop-ups) עבור אתר זה.");
+        return;
+    }
     
     printWindow.document.write(`
         <!DOCTYPE html>
@@ -373,62 +371,40 @@ function printPriceQuote(id) {
             </style>
         </head>
         <body>
-            
             <div class="header">
                 <div class="logo">🏗️ TaskFlow Pro</div>
                 <p>ניהול פרויקטים ובנייה</p>
             </div>
-
             <div class="sub-header">
                 <div><strong>תאריך:</strong> ${date}</div>
                 <div><strong>לכבוד:</strong> ${supplierName} ${contactName ? `(${contactName})` : ''}</div>
             </div>
-
             <div class="title">הנדון: בקשה להצעת מחיר (RFQ)</div>
-
             <p>שלום רב,</p>
             <p>נודה לקבלת הצעת מחיר עבור החומרים/העבודות בפרויקט <strong>"${task.description}"</strong>.</p>
-
             <table class="materials-table">
                 <thead>
-                    <tr>
-                        <th style="width: 50px;">#</th>
-                        <th>תיאור פריט / חומר</th>
-                        <th>הערות</th>
-                    </tr>
+                    <tr><th style="width: 50px;">#</th><th>תיאור פריט / חומר</th><th>הערות</th></tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>1</td>
-                        <td><strong>${materialsList}</strong></td>
-                        <td>דחוף</td>
-                    </tr>
+                    <tr><td>1</td><td><strong>${materialsList}</strong></td><td>דחוף</td></tr>
                     <tr><td>2</td><td></td><td></td></tr>
                     <tr><td>3</td><td></td><td></td></tr>
                 </tbody>
             </table>
-
             <div class="content-box" style="margin-top:20px;">
                 <div class="field-row"><span class="label">תאריך אספקה:</span> <span dir="ltr">${task.due_date}</span></div>
                 <div class="field-row"><span class="label">איש קשר:</span> ${task.person_in_charge}</div>
             </div>
-
             <div class="signature-area">
                 <div class="sign-line">חתימת המזמין</div>
                 <div class="sign-line">חתימת הספק</div>
             </div>
-
-            <div class="footer">
-                הופק באמצעות מערכת TaskFlow Pro
-            </div>
-
+            <div class="footer">הופק באמצעות מערכת TaskFlow Pro</div>
             <div class="no-print" style="text-align:center; margin-top:20px;">
                 <button onclick="window.print()" style="font-size:20px; padding:10px 20px; cursor:pointer; background:#2e7d32; color:white; border:none; border-radius:5px;">🖨️ הדפס / שמור כ-PDF</button>
             </div>
-
-            <script>
-                window.onload = function() { setTimeout(() => window.print(), 500); };
-            </script>
+            <script>window.onload = function() { setTimeout(() => window.print(), 500); };</script>
         </body>
         </html>
     `);

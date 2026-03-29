@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskFlow</title>
+    <title>TaskFlow Pro</title>
     <link rel="stylesheet" href="styles.css">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0d47a1">
+    <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
 
@@ -111,13 +115,14 @@
     <div class="container hidden" id="detail-view">
         <button onclick="showMainView()" class="btn-secondary">🔙 חזרה לרשימה</button>
         
-        <div class="card detail-card" id="detail-content">
-            </div>
+        <div class="card detail-card" id="detail-content"></div>
 
         <div class="card hidden" id="edit-form-container">
             <h2 style="color:var(--primary)">✏️ עריכת משימה</h2>
             <form id="editTaskForm">
-                <input type="hidden" id="editTaskId"> <div class="form-group">
+                <input type="hidden" id="editTaskId">
+                
+                <div class="form-group">
                     <label>תיאור משימה:</label>
                     <input type="text" id="editDesc" required>
                 </div>
@@ -147,7 +152,6 @@
                 <button type="button" onclick="cancelEdit()" class="btn-secondary">❌ ביטול</button>
             </form>
         </div>
-
     </div>
 
     <script src="app.js"></script>
